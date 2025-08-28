@@ -1,0 +1,71 @@
+name: build-and-release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            archTag: amd64
+          - platform: linux/arm64
+            archTag: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable QEMU (multi-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y patchelf
+
+      - name: Build ${{ matrix.archTag }}
+        run: |
+          docker buildx build \
+            --platform ${{ matrix.platform }} \
+            -f ffmpeg.Dockerfile \
+            -t ffmpeg-whip:builder-${{ matrix.archTag }} \
+            --load .
+
+      - name: Bundle ${{ matrix.archTag }}
+        run: |
+          chmod +x scripts/bundle-ffmpeg.sh
+          IMG=ffmpeg-whip:builder-${{ matrix.archTag }} scripts/bundle-ffmpeg.sh
+          sha256sum ffmpeg-whip-linux-${{ matrix.archTag }}.tar.gz > ffmpeg-whip-linux-${{ matrix.archTag }}.tar.gz.sha256
+
+      - name: Upload artifact ${{ matrix.archTag }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-whip-linux-${{ matrix.archTag }}
+          path: |
+            ffmpeg-whip-linux-${{ matrix.archTag }}.tar.gz
+            ffmpeg-whip-linux-${{ matrix.archTag }}.tar.gz.sha256
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Publish GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/ffmpeg-whip-linux-*.tar.gz
+            artifacts/**/ffmpeg-whip-linux-*.tar.gz.sha256
