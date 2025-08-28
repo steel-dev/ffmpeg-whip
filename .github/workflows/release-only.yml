@@ -19,9 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download only ffmpeg artifacts (flatten)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           run-id: ${{ inputs.run_id }}
+          repository: steel-dev/ffpmeg-whip
+          github-token: ${{ secrets.GH_PAT }}
           pattern: ffmpeg-whip-linux-*
           path: artifacts
           merge-multiple: true
