@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: "Run ID of the completed build-and-release run to pull artifacts from"
+        description: "Run ID of the completed build run"
         required: true
       tag:
-        description: "Existing tag to (re)publish (e.g., v0.0.0)"
+        description: "Existing tag (e.g., v0.0.0)"
         required: true
 
 permissions:
@@ -17,19 +17,31 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts from previous run
+      - name: Download only ffmpeg artifacts (flatten)
         uses: actions/download-artifact@v4
         with:
           run-id: ${{ inputs.run_id }}
-          path: ./artifacts
+          pattern: ffmpeg-whip-linux-*
+          path: artifacts
           merge-multiple: true
 
-      - name: Publish GitHub Release assets
+      - name: Show what we got
+        run: ls -lah artifacts
+
+      - name: Sanity check files exist
+        run: |
+          set -euo pipefail
+          ls artifacts/ffmpeg-whip-linux-*.tar.gz
+          ls artifacts/ffmpeg-whip-linux-*.tar.gz.sha256
+
+      - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
           files: |
-            artifacts/**/ffmpeg-whip-linux-*.tar.gz
-            artifacts/**/ffmpeg-whip-linux-*.tar.gz.sha256
+            artifacts/ffmpeg-whip-linux-*.tar.gz
+            artifacts/ffmpeg-whip-linux-*.tar.gz.sha256
+          fail_on_unmatched_files: true
+          replace_assets: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
