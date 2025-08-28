@@ -18,24 +18,16 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Download only ffmpeg artifacts (flatten)
-        uses: actions/download-artifact@v5
-        with:
-          run-id: ${{ inputs.run_id }}
-          repository: steel-dev/ffpmeg-whip
-          github-token: ${{ secrets.GH_PAT }}
-          pattern: ffmpeg-whip-linux-*
-          path: artifacts
-          merge-multiple: true
-
-      - name: Show what we got
-        run: ls -lah artifacts
-
-      - name: Sanity check files exist
+      - name: Download artifacts via gh (old slug)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -euo pipefail
-          ls artifacts/ffmpeg-whip-linux-*.tar.gz
-          ls artifacts/ffmpeg-whip-linux-*.tar.gz.sha256
+          gh run download "${{ inputs.run_id }}" \
+            -R steel-dev/ffpmeg-whip \
+            -n "ffmpeg-whip-linux-*" \
+            -D artifacts
+          ls -lahR artifacts
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
@@ -46,5 +38,3 @@ jobs:
             artifacts/ffmpeg-whip-linux-*.tar.gz.sha256
           fail_on_unmatched_files: true
           replace_assets: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
